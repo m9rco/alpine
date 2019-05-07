@@ -14,7 +14,7 @@ RUN apk add -U --no-cache \
     && sed -i s/#PermitRootLogin.*/PermitRootLogin\ yes/ /etc/ssh/sshd_config \
     && echo "${USER}:${PASSWORD}" | chpasswd \
     && ssh-keygen -A \
-    && rm -rf /var/cache/apk/* \
+    && rm -rf /var/cache/apk/* 
 
 ADD devfs /
 
