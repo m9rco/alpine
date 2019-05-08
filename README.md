@@ -1,5 +1,5 @@
 <p align="center">
-<img src="logo.png" width=300 height=200/>
+<img src="logo.png" width=300/>
 </p>
 
 # CN Alpine 
