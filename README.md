@@ -16,8 +16,16 @@
 
 ## Usage
 
+### Step 1
+
 ```sh
 docker pull m9rco/alpine:3.8 
+```
+
+### Step 2
+
+```sh
+docker run -it -v $(pwd):/app/ --name alpine m9rco/alpine:3.8 sh
 ```
 
 ## Images
