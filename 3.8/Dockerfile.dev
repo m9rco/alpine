@@ -18,6 +18,9 @@ RUN apk add -U --no-cache \
 
 ADD devfs /
 
+SHELL ["/bin/bash","-ic"] 
+RUN source ~/.bashrc
+
 CMD ["supervisord", "--nodaemon", "--configuration", "/etc/supervisor/conf.d/supervisord.conf"]
 
 EXPOSE 22
