@@ -1,4 +1,4 @@
-FROM alpine:3.8
+FROM m9rco/alpine:3.8
 
 ARG USER=root
 ARG PASSWORD=root
