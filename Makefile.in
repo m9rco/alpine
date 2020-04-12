@@ -1,0 +1,120 @@
+ifndef TAG
+	TAG := $(shell perl -n -e '/^\s*ARG\s+.+_VERSION\s*=\s*"?(\d+\.\d+|latest)"?/ && &{ print $$1; exit }' Dockerfile)
+endif
+
+ifndef REPO
+	REPO :=
+endif
+
+BRANCH = $(shell echo "$(REPO)" | sed 's,.*/,,; s/-dev$$//; s/-cli$$//; s/-cluster$$//; s/cloud$$//')
+
+ifndef MAP_PORTS
+	MAP_PORTS := ""
+endif
+
+ifndef NOPORTS
+	NOPORTS :=
+endif
+
+ifdef LATEST
+	TAG=latest
+endif
+
+ifneq "$(TAG)" ""
+	REPO_TAG := "$(REPO):$(TAG)"
+else
+	REPO_TAG := "$(REPO)"
+endif
+
+.PHONY: build
+build:
+	docker build -t $(REPO_TAG) .
+
+.PHONY: rm
+rm:
+	docker rmi $(REPO_TAG)
+
+.PHONY: nocache
+nocache:
+	docker build -t $(REPO_TAG) --no-cache .
+
+.PHONY: build-versions
+build-versions:
+	@echo "Building all versions from branches with base '$(BRANCH)'"
+	for x in $$(git branch -a | grep $(BRANCH) | sed 's,remotes/origin/,,' | sort -u); do \
+		git checkout "$$x" && \
+		$(MAKE) build && \
+		echo || \
+		exit 1; \
+	done; \
+	git checkout master
+
+.PHONY: build-push-versions
+build-push-versions: build-versions push-versions
+	:
+
+.PHONY: push
+push:
+	docker push $(REPO_TAG)
+	[ -f hooks/post_build ] && hooks/post_build || :
+
+# use 'make push' rather than just 'docker push' to trigger hooks/post_build
+.PHONY: push-versions
+push-versions:
+	for x in $$(git branch -a | grep $(BRANCH) | sed 's,remotes/origin/,,' | sort -u); do \
+		git checkout "$$x" && \
+		$(MAKE) push && \
+		echo || \
+		exit 1; \
+	done; \
+	git checkout master
+
+.PHONY: up
+up: build test push
+	:
+
+.PHONY: run
+run:
+	@if [ -n "$(MAP_PORTS)" ]; then \
+		ports=$$(for port in $(MAP_PORTS); do echo "-p $$port:$$port "; done); \
+		echo docker run --rm $$ports $(REPO_TAG); \
+		docker run --rm $$ports $(REPO_TAG); \
+	elif [ -n "$(NOPORTS)" ]; then \
+		echo docker run --rm $(REPO_TAG); \
+		docker run --rm $(REPO_TAG); \
+	else \
+		echo "docker run -ti --rm $(REPO_TAG) bash"; \
+		docker run -ti --rm $(REPO_TAG) bash; \
+	fi
+
+.PHONY: run-foreground
+run-foreground:
+	@if [ -n "$(MAP_PORTS)" ]; then \
+		ports=$$(for port in $(MAP_PORTS); do echo "-p $$port:$$port "; done); \
+		echo docker run -ti --rm $$ports $(REPO_TAG); \
+		docker run -ti --rm $$ports $(REPO_TAG); \
+	elif [ -n "$(NOPORTS)" ]; then \
+		echo docker run --rm $(REPO_TAG); \
+		docker run --rm $(REPO_TAG); \
+	else \
+		echo "docker run --rm $(REPO_TAG)"; \
+		docker run --rm $(REPO_TAG); \
+	fi
+
+.PHONY: run-fg
+run-fg: run-foreground
+	:
+
+.PHONY: sh
+sh:
+	#make -e MAP_PORTS="" run
+	docker run -ti --rm -v $$PWD:/code $(REPO_TAG) sh
+
+.PHONY: test
+test:
+	docker run -ti $(REPO) sh -c 'if test -f ../tests/all.sh; then ../tests/all.sh; fi;'
+
+
+.PHONY: interactive
+interactive:
+	docker run -ti --rm -v $$PWD:/code `awk '/^FROM /{print $$2; exit}' Dockerfile` sh
